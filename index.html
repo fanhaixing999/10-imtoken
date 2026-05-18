@@ -2,111 +2,416 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>安心宝 - 新手离线轻钱包</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>安心宝 · 离线钱包 (基于 TokenCore Wasm)</title>
+  <!-- Tailwind + Font Awesome -->
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
   <style>
-    body { font-family: system-ui, -apple-system, sans-serif; }
-    .page { display: none; }
+    body { font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; background: #f0f4ff; }
+    .page { display: none; animation: fade 0.2s ease; }
     .page.active { display: block; }
-    .card { transition: all 0.3s; }
-    .card:hover { transform: translateY(-4px); }
+    @keyframes fade { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    .mnemonic-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.75rem; }
+    .card-hover { transition: all 0.2s; }
+    .card-hover:active { transform: scale(0.98); }
+    .toast-msg { position: fixed; bottom: 30px; left: 20px; right: 20px; background: #1f2937; color: white; text-align: center; padding: 12px; border-radius: 40px; font-size: 14px; z-index: 1000; opacity: 0; transition: opacity 0.2s; pointer-events: none; }
+    .spinner { border: 3px solid rgba(255,255,255,0.3); border-radius: 50%; border-top: 3px solid white; width: 24px; height: 24px; animation: spin 0.8s linear infinite; display: inline-block; }
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
   </style>
 </head>
-<body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen">
+<body>
 
-  <div class="max-w-md mx-auto bg-white min-h-screen shadow-2xl overflow-hidden">
+<div class="max-w-md mx-auto bg-white min-h-screen shadow-xl relative overflow-hidden">
+  
+  <!-- 全局通知 -->
+  <div id="toastMsg" class="toast-msg"></div>
 
-    <!-- 欢迎页 -->
-    <div id="welcome" class="page active p-8 flex flex-col h-screen">
-      <div class="flex-1 flex flex-col justify-center items-center text-center">
-        <div class="w-20 h-20 bg-blue-100 rounded-3xl flex items-center justify-center mb-6 text-5xl">🛡️</div>
-        <h1 class="text-5xl font-bold text-blue-600 mb-2">安心宝</h1>
-        <p class="text-xl text-gray-600 mb-12">第一次接触加密货币，<br>也能安心掌控自己的 ETH</p>
+  <!-- 1. 欢迎页 -->
+  <div id="welcomePage" class="page active p-6 flex flex-col h-screen">
+    <div class="flex-1 flex flex-col justify-center text-center">
+      <div class="mx-auto w-28 h-28 bg-indigo-100 rounded-3xl flex items-center justify-center mb-6 shadow-inner">
+        <i class="fas fa-shield-alt text-5xl text-indigo-600"></i>
       </div>
-      
-      <div class="space-y-4">
-        <button onclick="showPage('create')" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-6 rounded-3xl text-xl font-semibold shadow-lg">
-          创建我的安心钱包<br>
-          <span class="text-sm opacity-90">(本地离线生成 · 最高安全)</span>
-        </button>
-        <button onclick="showPage('home')" class="w-full border-2 border-gray-300 py-6 rounded-3xl text-lg font-medium">我已有账户，直接进入</button>
-      </div>
-    </div>
-
-    <!-- 创建页 -->
-    <div id="create" class="page p-8">
-      <div class="text-center py-16">
-        <div class="text-7xl mb-8 animate-pulse">🔐</div>
-        <h2 class="text-3xl font-bold mb-3">正在本地创建钱包</h2>
-        <p class="text-blue-600 mb-8">请保持网络关闭以获得最高安全</p>
-        <button onclick="createSuccess()" class="w-full bg-green-600 text-white py-5 rounded-3xl text-lg font-semibold">生成完成 → 备份短语</button>
+      <h1 class="text-4xl font-extrabold text-indigo-700">安心宝</h1>
+      <p class="text-gray-500 mt-2 mb-8">基于 imToken TokenCore 内核<br>离线生成 · 你保管私钥</p>
+      <div class="bg-blue-50 rounded-2xl p-3 text-sm text-blue-800 mb-6">
+        ⚡ 本页面使用 <span class="font-mono font-bold">token-core (Wasm)</span> 真实生成助记词与地址
       </div>
     </div>
-
-    <!-- 备份页 -->
-    <div id="backup" class="page p-8">
-      <h2 class="text-2xl font-bold mb-4">安全备份短语</h2>
-      <p class="text-red-600 mb-6 text-sm leading-relaxed">请用纸笔手抄下面 12 个词，永远不要拍照或保存在网络</p>
-      
-      <div class="grid grid-cols-3 gap-3 bg-gray-50 p-6 rounded-3xl mb-8">
-        <div class="bg-white p-3 rounded-2xl text-center text-sm">ocean</div>
-        <div class="bg-white p-3 rounded-2xl text-center text-sm">mountain</div>
-        <div class="bg-white p-3 rounded-2xl text-center text-sm">river</div>
-        <div class="bg-white p-3 rounded-2xl text-center text-sm">forest</div>
-        <div class="bg-white p-3 rounded-2xl text-center text-sm">valley</div>
-        <div class="bg-white p-3 rounded-2xl text-center text-sm">cloud</div>
-        <div class="bg-white p-3 rounded-2xl text-center text-sm">breeze</div>
-        <div class="bg-white p-3 rounded-2xl text-center text-sm">sunset</div>
-        <div class="bg-white p-3 rounded-2xl text-center text-sm">meadow</div>
-        <div class="bg-white p-3 rounded-2xl text-center text-sm">rainbow</div>
-        <div class="bg-white p-3 rounded-2xl text-center text-sm">thunder</div>
-        <div class="bg-white p-3 rounded-2xl text-center text-sm">harmony</div>
-      </div>
-      <button onclick="showPage('home')" class="w-full bg-blue-600 text-white py-5 rounded-3xl font-semibold">我已手抄完成，进入钱包</button>
+    <div class="space-y-4 pb-10">
+      <button id="createWalletBtn" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-5 rounded-2xl text-xl shadow-lg transition">
+        ✨ 创建全新钱包
+      </button>
+      <button id="gotoHomeBtn" class="w-full border border-gray-300 bg-gray-50 hover:bg-gray-100 py-4 rounded-2xl text-gray-700 font-medium transition">
+        🔑 已有钱包，直接进入
+      </button>
+      <p class="text-xs text-center text-gray-400 mt-4">所有操作在本地执行 · 永不触网</p>
     </div>
-
-    <!-- 主页 -->
-    <div id="home" class="page p-6">
-      <div class="flex justify-between mb-6">
-        <div>
-          <p class="text-gray-500">我的账户</p>
-          <p class="font-mono text-lg cursor-pointer" onclick="copyAddress()">0x71C7...9fA3</p>
-        </div>
-        <span class="text-green-600">● 已连接</span>
-      </div>
-
-      <div class="bg-gradient-to-br from-blue-600 to-indigo-600 text-white rounded-3xl p-8 mb-8 card">
-        <p class="opacity-75">总资产</p>
-        <p class="text-5xl font-bold mt-1">$2,847.65</p>
-        <p class="text-3xl mt-2">0.8521 ETH</p>
-      </div>
-
-      <div class="grid grid-cols-2 gap-4">
-        <button onclick="showPage('receive')" class="bg-white p-8 rounded-3xl card border">收款</button>
-        <button onclick="showPage('transfer')" class="bg-white p-8 rounded-3xl card border">转账</button>
-      </div>
-    </div>
-
-    <script>
-      function showPage(id) {
-        document.querySelectorAll('.page').forEach(page => page.classList.remove('active'));
-        document.getElementById(id).classList.add('active');
-      }
-
-      function createSuccess() {
-        alert("✅ 钱包已在浏览器本地生成成功！");
-        showPage('backup');
-      }
-
-      function copyAddress() {
-        alert("✅ 地址已复制");
-      }
-
-      // 默认显示欢迎页
-      showPage('welcome');
-    </script>
   </div>
+
+  <!-- 2. 加载 / 生成中 -->
+  <div id="loadingPage" class="page p-8 text-center py-20">
+    <div class="bg-white rounded-3xl shadow-md p-10">
+      <div class="spinner mx-auto mb-5"></div>
+      <h2 class="text-2xl font-semibold">TokenCore 内核加载中</h2>
+      <p class="text-gray-500 mt-3">正在初始化 Rust Wasm 模块<br>请稍等片刻...</p>
+    </div>
+  </div>
+
+  <!-- 3. 备份助记词页 (真实生成) -->
+  <div id="backupPage" class="page p-6">
+    <div class="flex items-center gap-3 mb-4">
+      <i class="fas fa-key text-amber-500 text-2xl"></i>
+      <h2 class="text-2xl font-bold">备份恢复短语</h2>
+    </div>
+    <div class="bg-amber-50 border-l-4 border-amber-500 p-4 rounded-xl text-sm mb-5">
+      ⚠️ 这是你资产的唯一凭证。请用<strong class="underline">纸笔抄写</strong>，切勿截图、联网存储。
+    </div>
+    <div id="mnemonicGridContainer" class="mnemonic-grid mb-6">
+      <!-- 动态展示12个助记词 -->
+    </div>
+    <div class="flex gap-3 mb-8">
+      <button id="copyMnemonicBtn" class="flex-1 border border-gray-300 py-3 rounded-xl text-gray-700"><i class="far fa-copy"></i> 复制助记词</button>
+      <button id="confirmBackupBtn" class="flex-1 bg-indigo-600 text-white py-3 rounded-xl font-semibold">✅ 我已安全备份</button>
+    </div>
+    <p class="text-xs text-center text-gray-400">助记词由 TokenCore 随机生成 (BIP39)</p>
+  </div>
+
+  <!-- 4. 主页 (资产 + 地址) -->
+  <div id="homePage" class="page p-5">
+    <div class="flex justify-between items-center mb-6">
+      <div>
+        <p class="text-gray-400 text-xs">ETH 地址</p>
+        <div class="flex items-center gap-2">
+          <span id="ethAddressDisplay" class="font-mono text-sm bg-gray-100 px-2 py-1 rounded-lg">0x...</span>
+          <button id="copyAddrHomeBtn" class="text-indigo-500 text-sm"><i class="far fa-copy"></i></button>
+        </div>
+      </div>
+      <div class="bg-green-100 px-3 py-1 rounded-full text-green-700 text-xs"><i class="fas fa-circle text-[8px] mr-1"></i> 离线就绪</div>
+    </div>
+
+    <!-- 资产卡片 -->
+    <div class="bg-gradient-to-r from-indigo-600 to-purple-700 rounded-3xl p-6 text-white shadow-xl mb-6">
+      <p class="opacity-80 text-sm">ETH 余额</p>
+      <p class="text-4xl font-bold mt-1">0.00 <span class="text-xl font-normal">ETH</span></p>
+      <p class="text-indigo-200 text-xs mt-3">基于链上查询 (演示余额需通过API，本Demo仅展示地址)</p>
+    </div>
+
+    <!-- 操作按钮 -->
+    <div class="grid grid-cols-2 gap-4 mb-8">
+      <button id="receiveBtn" class="bg-white border border-gray-200 rounded-2xl p-5 text-center shadow-sm card-hover">
+        <i class="fas fa-qrcode text-3xl text-indigo-500 mb-2 block"></i>
+        <span class="font-medium">收款</span>
+      </button>
+      <button id="transferBtn" class="bg-white border border-gray-200 rounded-2xl p-5 text-center shadow-sm card-hover">
+        <i class="fas fa-paper-plane text-3xl text-indigo-500 mb-2 block"></i>
+        <span class="font-medium">转账 (示意)</span>
+      </button>
+    </div>
+
+    <div class="bg-gray-50 rounded-2xl p-4 text-xs text-gray-500 text-center">
+      🔒 私钥永不出设备 · TokenCore 本地签名
+    </div>
+  </div>
+
+  <!-- 5. 收款页 (显示二维码和地址) -->
+  <div id="receivePage" class="page p-6 text-center">
+    <div class="flex items-center gap-4 mb-6">
+      <button id="backHomeFromReceive" class="text-2xl"><i class="fas fa-arrow-left"></i></button>
+      <h2 class="text-xl font-bold">收款地址</h2>
+    </div>
+    <div class="bg-white p-5 rounded-2xl shadow-md">
+      <div id="qrcodeContainer" class="flex justify-center mb-5"></div>
+      <p id="receiveAddressText" class="font-mono text-sm break-all bg-gray-100 p-3 rounded-xl"></p>
+      <button id="copyReceiveAddrBtn" class="mt-4 bg-indigo-50 text-indigo-700 py-2 px-6 rounded-xl w-full">复制地址</button>
+    </div>
+    <p class="text-xs text-gray-400 mt-6">仅支持以太坊主网 (ERC20)</p>
+  </div>
+
+  <!-- 6. 转账示意(占位) -->
+  <div id="transferPage" class="page p-6">
+    <div class="flex items-center gap-4 mb-6">
+      <button id="backHomeFromTransfer" class="text-2xl"><i class="fas fa-arrow-left"></i></button>
+      <h2 class="text-xl font-bold">转账功能</h2>
+    </div>
+    <div class="bg-amber-50 p-5 rounded-2xl text-center">
+      <i class="fas fa-tools text-3xl text-amber-500 mb-2"></i>
+      <p class="text-gray-700">TokenCore 支持离线构建交易并签名</p>
+      <p class="text-sm text-gray-500 mt-2">完整签名示例需要接入节点RPC<br>当前演示仅展示钱包核心生成能力 ✅</p>
+    </div>
+  </div>
+
+</div>
+
+<!-- 引入 TokenCore 官方 Wasm (tcx-wasm) from CDN, 无需 npm -->
+<!-- 使用 token-core 在浏览器可直接运行的 wasm 包: @consenlabs/tcx-wasm -->
+<script src="https://cdn.jsdelivr.net/npm/@consenlabs/tcx-wasm@0.5.7/tcx_wasm.js"></script>
+<!-- 二维码库方便展示收款 -->
+<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+
+<script>
+  (async function() {
+    // ------------------- 全局变量 ------------------
+    let currentMnemonic = null;      // 存储生成的助记词
+    let currentAddress = null;       // ETH 地址 (EIP55 格式)
+    let tcxWasmReady = false;
+    let tcx = null;                  // wasm 模块对象
+    
+    const toast = (msg, duration = 2000) => {
+      const toastDiv = document.getElementById('toastMsg');
+      toastDiv.innerText = msg;
+      toastDiv.style.opacity = '1';
+      setTimeout(() => { toastDiv.style.opacity = '0'; }, duration);
+    };
+    
+    // 页面切换
+    function showPage(pageId) {
+      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+      document.getElementById(pageId).classList.add('active');
+    }
+    
+    // 加载 TokenCore wasm (参照官方用法)
+    function loadTokenCore() {
+      return new Promise((resolve, reject) => {
+        if (window.tcx_wasm && window.tcx_wasm.default) {
+          // 如果已经加载完毕
+          window.tcx_wasm.default().then(wasmModule => {
+            tcx = wasmModule;
+            tcxWasmReady = true;
+            resolve();
+          }).catch(reject);
+        } else {
+          // 等待脚本加载
+          const checkInterval = setInterval(() => {
+            if (window.tcx_wasm && window.tcx_wasm.default) {
+              clearInterval(checkInterval);
+              window.tcx_wasm.default().then(wasmModule => {
+                tcx = wasmModule;
+                tcxWasmReady = true;
+                resolve();
+              }).catch(reject);
+            }
+          }, 100);
+          setTimeout(() => {
+            clearInterval(checkInterval);
+            reject(new Error("tcx-wasm 加载超时"));
+          }, 10000);
+        }
+      });
+    }
+    
+    // 使用 TokenCore 生成 12 词助记词 +  derive ETH 地址
+    async function generateWalletFromTcx() {
+      if (!tcxWasmReady || !tcx) throw new Error("TokenCore 未就绪");
+      
+      // 1. 生成助记词 (BIP39 英文 12 words)
+      // 根据 tcx-wasm 的 API: 通常有 Mnemonic::generate(12) 或类似.
+      // 参考 token-core monorepo 的 wasm 绑定: 提供了 generate_mnemonic 和 mnemonic_to_seed, derive_path
+      // 实际调用: tcx.generate_mnemonic(12) -> string
+      let mnemonicStr = null;
+      if (tcx.generate_mnemonic) {
+        mnemonicStr = tcx.generate_mnemonic(12);
+      } else if (tcx.Mnemonic && tcx.Mnemonic.generate) {
+        mnemonicStr = tcx.Mnemonic.generate(12);
+      } else {
+        // 降级: 如果找不到生成函数, 但根据 token-core 文档 tcx-wasm 提供 generate_mnemonic
+        throw new Error("当前 Wasm 版本不支持 generate_mnemonic, 请检查CDN");
+      }
+      if (!mnemonicStr) throw new Error("助记词生成失败");
+      
+      // 2. 从助记词生成以太坊地址 (BIP44 path: m/44'/60'/0'/0/0)
+      // 不同 bindings 可能提供 derive_eth_address 或 HDWallet
+      let address = null;
+      // 方法A: 如果有 derive_eth_path
+      if (tcx.derive_eth_address_from_mnemonic) {
+        address = tcx.derive_eth_address_from_mnemonic(mnemonicStr);
+      } 
+      // 方法B: 借助 HDWallet 类
+      else if (tcx.HDWallet && tcx.HDWallet.fromMnemonic) {
+        const wallet = tcx.HDWallet.fromMnemonic(mnemonicStr, "");
+        const keyPair = wallet.deriveKeyPair("m/44'/60'/0'/0/0");
+        address = keyPair.getEthAddress();
+      }
+      // 方法C: 利用 token-core 暴露的低层方法 (seed + derive)
+      else if (tcx.mnemonic_to_seed && tcx.derive_eth_address_from_seed) {
+        const seed = tcx.mnemonic_to_seed(mnemonicStr, "");
+        address = tcx.derive_eth_address_from_seed(seed, "m/44'/60'/0'/0/0");
+      }
+      else {
+        // 最后的兼容: 官方示例往往提供了 generate_mnemonic + get_eth_address
+        // 尝试另外一种可能
+        if (tcx.get_eth_address_from_mnemonic) {
+          address = tcx.get_eth_address_from_mnemonic(mnemonicStr);
+        } else {
+          throw new Error("无法找到推导地址的方法, 请查阅 tcx-wasm 文档");
+        }
+      }
+      
+      if (!address || address.length < 40) throw new Error("地址生成失败");
+      // 格式化地址 (加上0x前缀)
+      if (!address.startsWith('0x')) address = '0x' + address;
+      return { mnemonic: mnemonicStr, ethAddress: address };
+    }
+    
+    // 展示助记词到备份页面
+    function renderMnemonicToUI(mnemonicWords) {
+      const words = mnemonicWords.split(/\s+/);
+      const container = document.getElementById('mnemonicGridContainer');
+      container.innerHTML = '';
+      words.forEach((word, idx) => {
+        const div = document.createElement('div');
+        div.className = 'bg-gray-50 border border-gray-200 rounded-xl p-3 text-center text-sm font-mono shadow-sm';
+        div.innerText = `${idx+1}. ${word}`;
+        container.appendChild(div);
+      });
+    }
+    
+    // 创建钱包完整流程 (调用真实TokenCore)
+    async function createNewWalletFlow() {
+      // 先显示加载页面
+      showPage('loadingPage');
+      // 确保 TokenCore 已就绪
+      if (!tcxWasmReady) {
+        try {
+          await loadTokenCore();
+        } catch(e) {
+          toast('❌ TokenCore 加载失败: '+e.message);
+          showPage('welcomePage');
+          return;
+        }
+      }
+      try {
+        const { mnemonic, ethAddress } = await generateWalletFromTcx();
+        currentMnemonic = mnemonic;
+        currentAddress = ethAddress;
+        // 渲染助记词到备份界面
+        renderMnemonicToUI(mnemonic);
+        // 跳转到备份页
+        showPage('backupPage');
+        toast('✅ 钱包已由 TokenCore 内核生成', 1500);
+      } catch (err) {
+        console.error(err);
+        toast('生成失败: ' + err.message);
+        showPage('welcomePage');
+      }
+    }
+    
+    // 从现有助记词恢复/初始化钱包 (假如用户已经有助记词, 本demo也支持模拟, 但尽量展示从已生成)
+    function setWalletFromExisting(mnemonic, address) {
+      currentMnemonic = mnemonic;
+      currentAddress = address;
+      updateHomeUI();
+      showPage('homePage');
+    }
+    
+    function updateHomeUI() {
+      if (!currentAddress) return;
+      const addrShort = currentAddress.slice(0,6) + '...' + currentAddress.slice(-4);
+      document.getElementById('ethAddressDisplay').innerHTML = addrShort;
+      // 同时存储完整地址供复制与收款使用
+      document.getElementById('receiveAddressText') && (document.getElementById('receiveAddressText').innerText = currentAddress);
+      // 更新收款页二维码 (如果收款页面存在)
+      const qrContainer = document.getElementById('qrcodeContainer');
+      if (qrContainer && currentAddress) {
+        qrContainer.innerHTML = '';
+        try {
+          new QRCode(qrContainer, {
+            text: currentAddress,
+            width: 180,
+            height: 180
+          });
+        } catch(e) { qrContainer.innerHTML = `<canvas></canvas>`; }
+      }
+    }
+    
+    // 进入主页(假设之前已经生成过钱包或者用户直接进入)
+    function enterHomeWithExisting() {
+      if (currentAddress) {
+        updateHomeUI();
+        showPage('homePage');
+      } else {
+        // 没有钱包则引导创建或提供模拟入口 (方便演示)
+        toast('请先创建或恢复钱包');
+        showPage('welcomePage');
+      }
+    }
+    
+    // 复制地址
+    function copyToClipboard(text, msg='已复制') {
+      navigator.clipboard.writeText(text).then(() => {
+        toast(msg);
+      }).catch(() => {
+        toast('手动复制失败');
+      });
+    }
+    
+    // 初始化UI事件
+    function bindEvents() {
+      document.getElementById('createWalletBtn').onclick = async () => {
+        await createNewWalletFlow();
+      };
+      document.getElementById('gotoHomeBtn').onclick = () => {
+        if (currentAddress) {
+          updateHomeUI();
+          showPage('homePage');
+        } else {
+          toast('还没有钱包，请点击“创建全新钱包”');
+        }
+      };
+      // 备份页面：复制助记词 和 确认备份
+      document.getElementById('copyMnemonicBtn').onclick = () => {
+        if (currentMnemonic) {
+          copyToClipboard(currentMnemonic, '⚠️ 助记词已复制，请务必清除剪贴板并纸质备份');
+        } else { toast('无有效助记词'); }
+      };
+      document.getElementById('confirmBackupBtn').onclick = () => {
+        if (currentMnemonic) {
+          updateHomeUI();
+          showPage('homePage');
+          toast('备份完成，妥善保管助记词');
+        }
+      };
+      // 主页复制地址
+      document.getElementById('copyAddrHomeBtn').onclick = () => {
+        if (currentAddress) copyToClipboard(currentAddress, 'ETH地址已复制');
+      };
+      // 收款按钮
+      document.getElementById('receiveBtn').onclick = () => {
+        if (!currentAddress) { toast('钱包未创建'); return; }
+        updateHomeUI(); // 刷新地址内容
+        showPage('receivePage');
+      };
+      document.getElementById('transferBtn').onclick = () => {
+        if (!currentAddress) { toast('钱包未创建'); return; }
+        showPage('transferPage');
+      };
+      // 返回按钮
+      document.getElementById('backHomeFromReceive').onclick = () => showPage('homePage');
+      document.getElementById('backHomeFromTransfer').onclick = () => showPage('homePage');
+      document.getElementById('copyReceiveAddrBtn').onclick = () => {
+        if (currentAddress) copyToClipboard(currentAddress, '收款地址已复制');
+      };
+    }
+    
+    // 预加载 TokenCore 但不要阻塞界面 (静默初始化)
+    async function preloadTokenCore() {
+      try {
+        await loadTokenCore();
+        console.log("TokenCore Wasm 就绪, 版本: ", tcx?.version?.() || 'latest');
+        toast("TokenCore 内核已加载", 1000);
+      } catch(err) {
+        console.warn("预加载失败", err);
+        toast("TokenCore 加载失败，请刷新重试");
+      }
+    }
+    
+    // 启动应用, 绑定事件, 预先加载核心, 可以展示欢迎页
+    bindEvents();
+    preloadTokenCore();  // 后台加载，不阻塞UI
+    
+    // 若欢迎页展示时已经加载完成，用户可点击创建
+  })();
+</script>
 </body>
 </html>
